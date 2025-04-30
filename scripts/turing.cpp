@@ -6,39 +6,107 @@
 using json = nlohmann::json;
 using namespace std;
 
-const int TAPE_SIZE = 20; // ← Updated from 15 to 20
+const int TAPE_SIZE = 20;
 
 string tapeToString(const vector<char> &tape)
 {
     return string(tape.begin(), tape.end());
 }
 
-void incrementBinary(vector<char> &tape, int &head, int &step, json &output)
+void moveHeadSmoothly(int &head, int target, int &step, json &output, const vector<char> &tape, int state)
 {
-    while (head >= 0)
+    while (head != target)
     {
-        if (tape[head] == 'B')
+        head += (head < target) ? 1 : -1;
+        output.push_back({{"step", step++},
+                          {"headIndex", head},
+                          {"tape", tapeToString(tape)},
+                          {"state", state}});
+    }
+}
+
+void simulateTuringMachine(vector<char> &tape, int &head, json &output)
+{
+    int step = 1;
+    int state = 0;
+
+    output.push_back({{"step", step++},
+                      {"headIndex", head},
+                      {"tape", tapeToString(tape)},
+                      {"state", state}});
+
+    while (head >= 0 && head < TAPE_SIZE)
+    {
+        char current = tape[head];
+        char write = current;
+        int move = 0;
+        int nextState = state;
+
+        if (state == 0)
         {
-            tape[head] = 'C';
-            output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
-            break;
+            if (current == '1')
+            {
+                write = 'X';
+                move = -1;
+                nextState = 1;
+            }
+            else if (current == 'X' || current == 'D')
+            {
+                write = current;
+                move = 1;
+                nextState = 0;
+            }
+            else if (current == 'B')
+            {
+                write = 'B';
+                move = -1;
+                nextState = 2;
+            }
+            else
+            {
+                break;
+            }
         }
-        else if (tape[head] == 'C')
+        else if (state == 1)
         {
-            tape[head] = 'D';
-            output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
-            head--;
-        }
-        else if (tape[head] == 'D')
-        {
-            tape[head] = 'C';
-            output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
-            break;
+            if (current == 'X')
+            {
+                write = 'X';
+                move = -1;
+                nextState = 1;
+            }
+            else if (current == 'C')
+            {
+                write = 'D';
+                move = -1;
+                nextState = 1;
+            }
+            else if (current == 'B' || current == 'D')
+            {
+                write = 'C';
+                move = 1;
+                nextState = 0;
+            }
+            else
+            {
+                break;
+            }
         }
         else
         {
-            head--;
+            // State 2 or undefined = halt
+            break;
         }
+
+        tape[head] = write;
+        output.push_back({{"step", step++},
+                          {"headIndex", head},
+                          {"tape", tapeToString(tape)},
+                          {"state", state}});
+
+        int newHead = head + move;
+        moveHeadSmoothly(head, newHead, step, output, tape, nextState);
+        state = nextState;
     }
 }
 
@@ -75,37 +143,9 @@ int main(int argc, char *argv[])
     }
 
     int head = unaryStart;
-    int step = 1;
     json output = json::array();
-    output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
 
-    while (head < TAPE_SIZE)
-    {
-        if (tape[head] == '1')
-        {
-            tape[head] = 'X';
-            output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
-
-            head--;
-            output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
-
-            incrementBinary(tape, head, step, output);
-
-            head = unaryStart;
-            while (head < TAPE_SIZE && tape[head] != '1')
-            {
-                head++;
-            }
-            if (head < TAPE_SIZE)
-            {
-                output.push_back({{"step", step++}, {"headIndex", head}, {"tape", tapeToString(tape)}});
-            }
-        }
-        else
-        {
-            break;
-        }
-    }
+    simulateTuringMachine(tape, head, output);
 
     cout << output.dump(4) << endl;
     return 0;
