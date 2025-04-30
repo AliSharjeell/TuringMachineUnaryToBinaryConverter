@@ -19,13 +19,13 @@ export async function POST(request) {
     const result = await new Promise((resolve, reject) => {
       // Path to the compiled C++ binary
       const binaryPath = path.resolve(process.cwd(), './scripts/turing.exe');
-      
+
       execFile(binaryPath, [unary], (error, stdout, stderr) => {
         if (error) {
           reject(stderr || 'Execution error');
           return;
         }
-        
+
         try {
           // Parse JSON output
           const output = JSON.parse(stdout);
